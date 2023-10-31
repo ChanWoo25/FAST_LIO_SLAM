@@ -1,5 +1,5 @@
 <launch>
-    
+
     <param name="scan_line" type="int" value="32" />
 
     <!-- if 1, do mapping 10 Hz, if 2, do mapping 5 Hz. Suggest to use 1, it will adjust frequence automaticlly -->
@@ -12,7 +12,7 @@
     <param name="mapping_plane_resolution" type="double" value="0.4"/>
 
     <!-- SC-A-LOAM -->
-    <param name="keyframe_meter_gap" type="double" value="1.0"/> 
+    <param name="keyframe_meter_gap" type="double" value="1.0"/>
 
     <!-- Scan Context -->
     <param name="sc_dist_thres" type="double" value="0.2"/> <!-- SC-A-LOAM, if want no outliers, use 0.1-0.15 -->
