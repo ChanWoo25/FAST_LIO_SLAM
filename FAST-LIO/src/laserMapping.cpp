@@ -39,6 +39,7 @@
 #include <fstream>
 #include <csignal>
 #include <unistd.h>
+#include <cstdlib>
 #include <Python.h>
 #include <so3_math.h>
 #include <ros/ros.h>
@@ -80,8 +81,18 @@ const float MOV_THRESHOLD = 1.5f;
 mutex mtx_buffer;
 condition_variable sig_buffer;
 
+string save_root_dir = "/data/datasets/dataset_project";
+string seq_name;
+string seq_dir;
+string seq_pcd_dir;
+string lidar_fn;
+std::ofstream f_lidar;
+string pose_fastlio2_fn;
+std::ofstream f_pose_fastlio2;
 string root_dir = ROOT_DIR;
 string map_file_path, lid_topic, imu_topic;
+int scan_idx = 0;
+
 
 double res_mean_last = 0.05, total_residual = 0.0;
 double last_timestamp_lidar = 0, last_timestamp_imu = -1.0;
@@ -747,6 +758,27 @@ int main(int argc, char** argv)
     nh.param<bool>("pcd_save_enable", pcd_save_en, 0);
     nh.param<vector<double>>("mapping/extrinsic_T", extrinT, vector<double>());
     nh.param<vector<double>>("mapping/extrinsic_R", extrinR, vector<double>());
+
+    /* For saving undistorted lidar points */
+    nh.param<string>("seq_name", seq_name,"");
+    seq_dir = save_root_dir + "/" + seq_name;
+    seq_pcd_dir = seq_dir + "/lidar_undistorted";
+    lidar_fn = seq_dir + "/lidar_data.txt";
+    pose_fastlio2_fn = seq_dir + "/pose_fast_lio2.txt";
+    if (mkdir(seq_pcd_dir.c_str(), 777) == 0)
+    {
+      std::cout << "Directory created successfully." << std::endl;
+    }
+    else
+    {
+      std::cerr << "Error: Unable to create the directory." << std::endl;
+    }
+    // Open the file in append mode
+    f_lidar.open(lidar_fn, std::ios::app);
+    f_pose_fastlio2.open(pose_fastlio2_fn, std::ios::app);
+    if (!f_lidar.is_open()) { std::cerr << "Fail to open " << lidar_fn << std::endl; exit(1); }
+    if (!f_pose_fastlio2.is_open()) { std::cerr << "Fail to open " << pose_fastlio2_fn << std::endl; exit(1); }
+
     cout<<"p_pre->lidar_type "<<p_pre->lidar_type<<endl;
 
     path.header.stamp    = ros::Time::now();
@@ -842,7 +874,7 @@ int main(int argc, char** argv)
             svd_time   = 0;
             t0 = omp_get_wtime();
 
-            p_imu->Process(Measures, kf, feats_undistort);
+            p_imu->Process(Measures, kf, feats_undistort); // point are undistorted.
             state_point = kf.get_x();
             pos_lid = state_point.pos + state_point.rot * state_point.offset_T_L_I;
 
@@ -882,6 +914,8 @@ int main(int argc, char** argv)
             int featsFromMapNum = ikdtree.validnum();
             kdtree_size_st = ikdtree.size();
 
+
+
             // cout<<"[ mapping ]: In num: "<<feats_undistort->points.size()<<" downsamp "<<feats_down_size<<" Map num: "<<featsFromMapNum<<"effect num:"<<effct_feat_num<<endl;
 
             /*** ICP and iterated Kalman filter update ***/
@@ -889,6 +923,7 @@ int main(int argc, char** argv)
             feats_down_world->resize(feats_down_size);
 
             V3D ext_euler = SO3ToEuler(state_point.offset_R_L_I);
+            state_point.rot.coeffs()[0];
             fout_pre<<setw(20)<<Measures.lidar_beg_time - first_lidar_time<<" "<<euler_cur.transpose()<<" "<< state_point.pos.transpose()<<" "<<ext_euler.transpose() << " "<<state_point.offset_T_L_I.transpose()<< " " << state_point.vel.transpose() \
             <<" "<<state_point.bg.transpose()<<" "<<state_point.ba.transpose()<<" "<<state_point.grav<< endl;
 
@@ -918,8 +953,43 @@ int main(int argc, char** argv)
             geoQuat.y = state_point.rot.coeffs()[1];
             geoQuat.z = state_point.rot.coeffs()[2];
             geoQuat.w = state_point.rot.coeffs()[3];
-
             double t_update_end = omp_get_wtime();
+
+            /* Log poses and undistorted points */
+            std::stringstream ss1;
+            ss1 << "lidar_undistorted/" << std::setfill('0') << std::setw(6) << scan_idx++ << ".bin";
+            std::string pcd_fn = ss1.str();
+            std::ofstream ofile;
+            ofile.open(std::string(seq_dir + "/" + pcd_fn), std::ios::out | std::ios::binary);
+            if (ofile.is_open())
+            {
+                for (const auto & point : feats_undistort->points)
+                {
+                    ofile.write(reinterpret_cast<const char *>(&point.x), sizeof(float));
+                    ofile.write(reinterpret_cast<const char *>(&point.y), sizeof(float));
+                    ofile.write(reinterpret_cast<const char *>(&point.z), sizeof(float));
+                    ofile.write(reinterpret_cast<const char *>(&point.intensity), sizeof(float));
+                }
+                ofile.close();
+                std::cout << "Write to " << seq_pcd_dir + "/" + pcd_fn << std::endl;
+                ofile.close();
+            } else {
+                std::cerr << "Fail write to " << seq_pcd_dir + "/" + pcd_fn << std::endl;
+            }
+
+            std::stringstream ss2; ss2.precision(8);
+            ss2 << ss2.fixed << (Measures.lidar_beg_time-first_lidar_time) << " " << pcd_fn << "\n";
+            f_lidar << ss2.str();
+            std::stringstream ss3; ss3.precision(8);
+            ss3 << ss3.fixed << (Measures.lidar_beg_time-first_lidar_time)
+                << " " << state_point.pos(0)
+                << " " << state_point.pos(1)
+                << " " << state_point.pos(2)
+                << " " << state_point.rot.coeffs()[0]
+                << " " << state_point.rot.coeffs()[1]
+                << " " << state_point.rot.coeffs()[2]
+                << " " << state_point.rot.coeffs()[3] << "\n";
+            f_pose_fastlio2 << ss3.str();
 
             /******* Publish odometry *******/
             publish_odometry(pubOdomAftMapped);
@@ -931,13 +1001,17 @@ int main(int argc, char** argv)
 
             /******* Publish points *******/
             publish_path(pubPath);
-            if (scan_pub_en || pcd_save_en)      publish_frame_world(pubLaserCloudFull);
-            if (scan_pub_en && scan_body_pub_en) {
+            if (scan_pub_en || pcd_save_en)
+              publish_frame_world(pubLaserCloudFull);
+            if (scan_pub_en && scan_body_pub_en)
+            {
               publish_frame_body(pubLaserCloudFull_body);
               publish_frame_lidar(pubLaserCloudFull_lidar);
             }
             // publish_effect_world(pubLaserCloudEffect);
             // publish_map(pubLaserCloudMap);
+
+
 
             /*** Debug variables ***/
             if (runtime_pos_log)
@@ -973,6 +1047,9 @@ int main(int argc, char** argv)
         status = ros::ok();
         rate.sleep();
     }
+
+    f_lidar.close();
+    f_pose_fastlio2.close();
 
     /**************** save map ****************/
     /* 1. make sure you have enough memories
