@@ -760,6 +760,7 @@ int main(int argc, char** argv)
     nh.param<vector<double>>("mapping/extrinsic_R", extrinR, vector<double>());
 
     /* For saving undistorted lidar points */
+string save_root_dir = "/data/datasets/dataset_project";
     nh.param<string>("seq_name", seq_name,"");
     seq_dir = save_root_dir + "/" + seq_name;
     seq_pcd_dir = seq_dir + "/lidar_undistorted";
@@ -978,10 +979,13 @@ int main(int argc, char** argv)
             }
 
             std::stringstream ss2; ss2.precision(8);
-            ss2 << ss2.fixed << (Measures.lidar_beg_time-first_lidar_time) << " " << pcd_fn << "\n";
+            ss2 << std::fixed << Measures.lidar_beg_time << " " << pcd_fn << "\n";
             f_lidar << ss2.str();
-            std::stringstream ss3; ss3.precision(8);
-            ss3 << ss3.fixed << (Measures.lidar_beg_time-first_lidar_time)
+            std::stringstream ss3;
+            ss3.precision(8);
+            ss3 << std::fixed << Measures.lidar_beg_time;
+            ss3.precision(6);
+            ss3 << std::fixed
                 << " " << state_point.pos(0)
                 << " " << state_point.pos(1)
                 << " " << state_point.pos(2)

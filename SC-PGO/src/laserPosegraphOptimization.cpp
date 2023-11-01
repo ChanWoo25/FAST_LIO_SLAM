@@ -134,6 +134,7 @@ std::string save_directory;
 std::string pgKITTIformat, pgScansDirectory;
 std::string odomKITTIformat;
 std::fstream pgTimeSaveStream;
+std::string seq_name;
 
 #define HASH_P 116101
 #define MAX_N 10000000000
@@ -308,6 +309,47 @@ void saveOptimizedVerticesKITTIformat(gtsam::Values _estimates, std::string _fil
         stream << col1.x() << " " << col2.x() << " " << col3.x() << " " << t.x() << " "
                << col1.y() << " " << col2.y() << " " << col3.y() << " " << t.y() << " "
                << col1.z() << " " << col2.z() << " " << col3.z() << " " << t.z() << std::endl;
+    }
+}
+
+void saveOptimizedVerticesKITTIformatV2(gtsam::Values _estimates, std::string _filename)
+{
+    using namespace gtsam;
+
+    std::string save_root_dir = "/data/datasets/dataset_project";
+    std::string pose_fn = save_root_dir + "/" + seq_name + "/pose_isam.txt";
+
+    // ref from gtsam's original code "dataset.cpp"
+    std::cout << "Write to " << pose_fn << " the estimated path." << std::endl;
+    std::fstream stream(pose_fn.c_str(), std::fstream::out);
+    /* Check that 3 vector length is same */
+    // std::cout << "Time len: " << keyframeTimes.size()
+    //           << ", keyframes size:" << keyframePoses.size()
+    //           << ", keyframes_updated size: " << keyframePosesUpdated.size() << std::endl;
+    size_t ti = 0;
+
+    for(const auto& key_value: _estimates) {
+        auto p = dynamic_cast<const GenericValue<Pose3>*>(&key_value.value);
+        if (!p) continue;
+
+        const Pose3& pose = p->value();
+
+        Point3 t = pose.translation();
+        Rot3 R = pose.rotation();
+        auto Q = R.toQuaternion();
+        auto col1 = R.column(1); // Point3
+        auto col2 = R.column(2); // Point3
+        auto col3 = R.column(3); // Point3
+
+        stream.precision(8);
+        stream << std::fixed << keyframeTimes[ti++] << " ";
+        stream.precision(6);
+        stream << std::fixed << t.x() << " " << t.y() << " " << t.z() << " "
+               << Q.x() << " " << Q.y() << " " << Q.z()  << " " << Q.w() << "\n";
+
+        // stream << col1.x() << " " << col2.x() << " " << col3.x() << " " << t.x() << " "
+        //        << col1.y() << " " << col2.y() << " " << col3.y() << " " << t.y() << " "
+        //        << col1.z() << " " << col2.z() << " " << col3.z() << " " << t.z() << std::endl;
     }
 }
 
@@ -848,7 +890,8 @@ void process_isam(void)
             cout << "running isam2 optimization ..." << endl;
             mtxPosegraph.unlock();
 
-            saveOptimizedVerticesKITTIformat(isamCurrentEstimate, pgKITTIformat); // pose
+            saveOptimizedVerticesKITTIformatV2(isamCurrentEstimate, pgKITTIformat); // pose
+            // saveOptimizedVerticesKITTIformat(isamCurrentEstimate, pgKITTIformat); // pose
             saveOdometryVerticesKITTIformat(odomKITTIformat); // pose
         }
     }
@@ -901,6 +944,7 @@ int main(int argc, char **argv)
 	ros::NodeHandle nh;
 
 	nh.param<std::string>("save_directory", save_directory, "/"); // pose assignment every k m move
+    nh.param<std::string>("seq_name", seq_name, "");
     pgKITTIformat = save_directory + "optimized_poses.txt";
     odomKITTIformat = save_directory + "odom_poses.txt";
     pgTimeSaveStream = std::fstream(save_directory + "times.txt", std::fstream::out);
@@ -945,13 +989,13 @@ int main(int argc, char **argv)
 	pubLoopScanLocal = nh.advertise<sensor_msgs::PointCloud2>("/loop_scan_local", 100);
 	pubLoopSubmapLocal = nh.advertise<sensor_msgs::PointCloud2>("/loop_submap_local", 100);
 
-	std::thread posegraph_slam {process_pg}; // pose graph construction
-	std::thread lc_detection {process_lcd}; // loop closure detection
-	std::thread icp_calculation {process_icp}; // loop constraint calculation via icp
-	std::thread isam_update {process_isam}; // if you want to call less isam2 run (for saving redundant computations and no real-time visulization is required), uncommment this and comment all the above runisam2opt when node is added.
+	std::thread posegraph_slam {process_pg};    // pose graph construction
+	std::thread lc_detection {process_lcd};     // loop closure detection
+	std::thread icp_calculation {process_icp};  // loop constraint calculation via icp
+	std::thread isam_update {process_isam};     // if you want to call less isam2 run (for saving redundant computations and no real-time visulization is required), uncommment this and comment all the above runisam2opt when node is added.
 
-	std::thread viz_map {process_viz_map}; // visualization - map (low frequency because it is heavy)
-	std::thread viz_path {process_viz_path}; // visualization - path (high frequency)
+	std::thread viz_map {process_viz_map};      // visualization - map  (low frequency because it is heavy)
+	std::thread viz_path {process_viz_path};    // visualization - path (high frequency)
 
  	ros::spin();
 

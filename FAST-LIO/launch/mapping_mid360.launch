@@ -2,7 +2,7 @@
 <!-- Launch file for Livox AVIA LiDAR -->
 
 	<arg name="rviz" default="true" />
-	<arg name="seq_name" default="hangpa00" />
+	<arg name="seq_name" default="outdoor03" />
 
 	<rosparam command="load" file="$(find fast_lio)/config/mid360.yaml" />
 

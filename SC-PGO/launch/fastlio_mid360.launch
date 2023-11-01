@@ -1,5 +1,8 @@
 <launch>
 
+    <!-- Arguments -->
+	<arg name="seq_name" default="outdoor03" />
+
     <param name="scan_line" type="int" value="32" />
 
     <!-- if 1, do mapping 10 Hz, if 2, do mapping 5 Hz. Suggest to use 1, it will adjust frequence automaticlly -->
@@ -27,12 +30,14 @@
     <!-- input from FASTLIO2 -->
     <remap from="/aft_mapped_to_init" to="/Odometry"/>
     <remap from="/velodyne_cloud_registered_local" to="/cloud_registered_body"/>
-    <remap from="/cloud_for_scancontext" to="/cloud_registered_lidar"/>   <!-- because ScanContext requires lidar-ego-centric coordinate for the better performance -->
+        <!-- because ScanContext requires lidar-ego-centric coordinate for the better performance -->
+    <remap from="/cloud_for_scancontext" to="/cloud_registered_lidar"/>
 
     <!-- utils -->
     <param name="save_directory" type="string" value="$(env HOME)/Desktop/catkin_fastlio_slam/data/"/>  <!-- CHANGE THIS and end with / -->
 
     <!-- nodes -->
+	<param name="seq_name" type="string" value="$(arg seq_name)" />
     <node pkg="aloam_velodyne" type="alaserPGO" name="alaserPGO" output="screen" /> <!-- Scan Context-based PGO -->
 
     <!-- visulaization -->
