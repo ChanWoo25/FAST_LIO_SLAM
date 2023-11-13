@@ -1,7 +1,7 @@
 <launch>
 
     <!-- Arguments -->
-	<arg name="seq_name" default="outdoor03" />
+	<arg name="seq_name" default="itbt_dark02" />
 
     <param name="scan_line" type="int" value="32" />
 

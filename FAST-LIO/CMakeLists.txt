@@ -58,11 +58,23 @@ find_package(catkin REQUIRED COMPONENTS
 
 find_package(Eigen3 REQUIRED)
 find_package(PCL 1.8 REQUIRED)
+find_package(fmt REQUIRED)
+
+### pkg-config ###
+find_package(PkgConfig REQUIRED)
+# Search Rosbag
+pkg_check_modules(ROSBAG REQUIRED rosbag)
+if (ROSBAG_FOUND)
+  message(STATUS "rosbag version: ${ROSBAG_VERSION}")
+  message(STATUS "* ${ROSBAG_INCLUDE_DIRS}")
+  message(STATUS "* ${ROSBAG_LIBRARIES}\n")
+endif (ROSBAG_FOUND)
+### pkg-config ###
 
 message(Eigen: ${EIGEN3_INCLUDE_DIR})
 
 include_directories(
-	${catkin_INCLUDE_DIRS} 
+	${catkin_INCLUDE_DIRS}
   ${EIGEN3_INCLUDE_DIR}
   ${PCL_INCLUDE_DIRS}
   ${PYTHON_INCLUDE_DIRS}
@@ -84,6 +96,35 @@ catkin_package(
   INCLUDE_DIRS
 )
 
-add_executable(fastlio_mapping src/laserMapping.cpp include/ikd-Tree/ikd_Tree.cpp src/preprocess.cpp)
-target_link_libraries(fastlio_mapping ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${PYTHON_LIBRARIES})
-target_include_directories(fastlio_mapping PRIVATE ${PYTHON_INCLUDE_DIRS})
+add_executable(fastlio_mapping
+  src/laserMapping.cpp
+  include/ikd-Tree/ikd_Tree.cpp
+  src/preprocess.cpp)
+target_link_libraries(fastlio_mapping
+  ${catkin_LIBRARIES}
+  ${PCL_LIBRARIES}
+  ${PYTHON_LIBRARIES})
+# target_include_directories(fastlio_mapping
+# PRIVATE ${PYTHON_INCLUDE_DIRS})
+
+
+add_executable(parse_bag
+  src/main_parse_bag.cpp)
+target_link_libraries(parse_bag
+  ${catkin_LIBRARIES}
+  ${PCL_LIBRARIES}
+  fmt::fmt)
+
+# add_executable(generate_submap
+#   src/main_generate_submap.cpp)
+# target_link_libraries(generate_submap
+#   ${catkin_LIBRARIES}
+#   ${PCL_LIBRARIES}
+#   fmt::fmt)
+
+# add_executable(kitti_publisher
+#   src/main_kitti_publisher.cpp)
+# target_link_libraries(kitti_publisher
+#   ${catkin_LIBRARIES}
+#   ${PCL_LIBRARIES}
+#   fmt::fmt)

@@ -81,8 +81,8 @@ const float MOV_THRESHOLD = 1.5f;
 mutex mtx_buffer;
 condition_variable sig_buffer;
 
-string save_root_dir = "/data/datasets/dataset_project";
-string seq_name;
+string save_root_dir;
+string proj_name, seq_name;
 string seq_dir;
 string seq_pcd_dir;
 string lidar_fn;
@@ -760,8 +760,9 @@ int main(int argc, char** argv)
     nh.param<vector<double>>("mapping/extrinsic_R", extrinR, vector<double>());
 
     /* For saving undistorted lidar points */
-string save_root_dir = "/data/datasets/dataset_project";
     nh.param<string>("seq_name", seq_name,"");
+    nh.param<string>("proj_name", proj_name,"");
+    save_root_dir = "/data/datasets/" + proj_name;
     seq_dir = save_root_dir + "/" + seq_name;
     seq_pcd_dir = seq_dir + "/lidar_undistorted";
     lidar_fn = seq_dir + "/lidar_data.txt";

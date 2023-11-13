@@ -1,0 +1,7 @@
+<launch>
+
+	<param name="root_dir" type="string" value="/data/datasets/dataset_kitti"/>
+	<param name="voxel_size" type="double" value="1.0"/>
+	<node pkg="fast_lio" type="generate_submap" name="generate_submap" output="screen" />
+
+</launch>
